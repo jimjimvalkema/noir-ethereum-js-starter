@@ -44,9 +44,9 @@ Install noirup
 ```shell
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
 ```
-install nargo (and lets stick to this specific version: 1.0.0-beta.14)
+install nargo (and lets stick to this specific version: 1.0.0-beta.5)
 ```shell
-noirup --version  1.0.0-beta.14
+noirup --version  1.0.0-beta.5
 ```
 
 
@@ -56,7 +56,7 @@ we can now use nargo to make a little hello world project.
 ```shell
 nargo new hello_world
 ```
-#### what is in here?
+### what is in here?
 It created a folder called `hello_world`, inside is:
 * `src/main.nr`: this is where your noir code is! This the code for your circuit
 * `Nargo.toml`: This is where you install packages and add extra information about your repo.    
@@ -92,25 +92,25 @@ What is zk here? The first number: `x`! The contract will only see the number `y
 
 
 ## step 2 [bb](https://barretenberg.aztec.network/docs/getting_started): let's proof and verify!
-#### noir is not only for aztec
+### noir is not only for aztec
 Noir is not tied to a single smart contract ecosystem or even a proof system. 
 Noir the language gets compiled with nargo to a intermediate representation that then other systems called backends can use to create the proofs and verifiers from.  
 Aztec is building a zk-rollup and made a backend to do that. And that backend can generate aztec-contracts that live on their rollup but also solidity verifiers that they use to verify their rollup!  
 *key take away:* write your code once and proof it with starks snarks or any system that has a backend for noir!!  
 
-#### lets install aztecs [barretenberg](https://barretenberg.aztec.network/docs/getting_started) backend (aka bb)
+### lets install aztecs [barretenberg](https://barretenberg.aztec.network/docs/getting_started) backend (aka bb)
 Install bbup
 ```shell
 curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/next/barretenberg/bbup/install | bash
 ```
-*lets install bb and stick to this specific version: 3.0.0-nightly.20251030-2*
+*lets install bb and stick to this specific version: 0.72.1*
 ```shell
-bbup --version 3.0.0-nightly.20251030-2
+bbup --version 0.72.1
 ```
-*you can also do `bbup --nv  1.0.0-beta.14` to install the latest version of bb that is compatible with that nargo version*
+*you can also do `bbup --nv  1.0.0-beta.5` to install the latest version of bb that is compatible with that nargo version*
 
 
-#### setup 
+### setup 
 Now let's compile our circuit with nargo.
 Go into the hello_world folder and compile it:
 ```shell
@@ -119,7 +119,7 @@ nargo compile;
 ```
 
 Now it generated `target/hello_world.json`, this is our intermediate representation of our circuit!   
-Next let's make `nargo` make the "witness", which is the data `bb` needs to create a proofs.  
+<!-- Next let's make `nargo` make the "witness", which is the data `bb` needs to create a proofs.  
 Lets make the files where we can input the `x` and `y` values:
 ```shell
 nargo check
@@ -129,11 +129,12 @@ Now `Prover.toml` is generated. Lets edit it and add our numbers for ex lets do:
 ```toml
 x = "1"
 y = "2"
-```
+``` -->
 
 
-#### proof it!!!
-Then we execute with nargo:
+### proof it!!!
+sorry noir brokey, but we will do it in js!
+<!-- Then we execute with nargo:
 ```shell 
 nargo execute;
 ```
@@ -145,7 +146,8 @@ Remember:
 `./target/hello_world.gz` is our witness, the intermediate step of our proof
 
 ```shell
-bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --write_vk -o target
+bb write_vk -b ./target/hello_world.json;
+bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --vk target/vk -o target/proof;
 ```
 This generated a whole bunch of files. But most importantly the proof and public inputs.   
 *vk and vk_hash are used to verify which circuit you are proving/verify*  
@@ -154,7 +156,139 @@ And now can verify it by doing:
 bb verify -p ./target/proof -k ./target/vk
 ```
 
-Yay we verified a zk proof.
+Yay we verified a zk proof. -->
 
 
 ## step 3 now let's do it in the browser
+### setup yarn
+lets add our js package we need from aztec.   
+Make sure you are in the root of your project. (above `hello_world` folder) 
+```shell
+yarn add @aztec/bb.js@0.72.1;
+yarn add @noir-lang/noir_js@1.0.0-beta.5;
+yarn add viem;
+```
+*you have to make sure the version match with nargo and bb ofc*  
+
+#### lets make a very simple ui with vanilla js and html:
+In the root of your project make file named: `index.html`    
+Inside `index.html` paste this:
+```html
+<!DOCTYPE html>
+<head>
+  <style>
+    .outer {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+    }
+    .inner {
+        width: 45%;
+        border: 1px solid black;
+        padding: 10px;
+        word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <script type="module" src="/index.js"></script>
+  <h1>Noir app</h1>
+  <div class="input-area">
+    <input id="number-x" type="number" placeholder="Enter secret number x" />
+     <input id="number-y" type="number" placeholder="Enter public number y" />
+    <button id="submit">Submit numbers</button>
+  </div>
+  <div class="outer">
+    <div id="logs" class="inner"><h2>Logs</h2></div>
+    <div id="results" class="inner"><h2>Proof</h2></div>
+  </div>
+</body>
+</html>
+```
+
+now add vite to our project so we can run our website locally:
+```shell
+yarn add vite;
+```
+
+setup config for vite so it supports wasm:  
+make a file called `vite.config.js`
+Paste this in there: 
+```js
+// to enable wasm support since bb needs it
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
+export default {
+    plugins: [
+        nodePolyfills(),
+    ],
+  optimizeDeps: {
+    esbuildOptions: { target: 'esnext' },
+    exclude: ['@noir-lang/noirc_abi', '@noir-lang/acvm_js'],
+  },
+  root: '.',
+};
+```
+
+Now to see our website we can do: 
+```shell
+yarn vite dev
+```
+But the buttons don't work yet!   
+Let's paste this into `index.js`:
+```js
+function log(content) {
+	const container = document.getElementById("logs");
+	container.appendChild(document.createTextNode(content));
+	container.appendChild(document.createElement("br"));
+};
+
+
+async function onSubmit() {
+    const xElement = document.getElementById("number-x")
+    const yElement = document.getElementById("number-y")
+    const inputs = {x:Number(xElement.value),y:Number(yElement.value)}
+    console.log({inputs})
+    log(JSON.stringify(inputs))
+
+}
+
+document.getElementById("submit").addEventListener("click", onSubmit);
+```
+
+now we can see what our inputs are in the logs box!  
+#### Now time to proof 
+Import noir,the circuit,viem and bb like this at the top of the index.js file:
+```js
+import { UltraHonkBackend } from '@aztec/bb.js';
+import { Noir } from '@noir-lang/noir_js';
+import circuit from './hello_world/target/hello_world.json';
+import { toHex } from 'viem';
+```
+
+and replace the onSubmit function with this: 
+```js
+async function onSubmit() {
+    const xElement = document.getElementById("number-x")
+    const yElement = document.getElementById("number-y")
+    const inputs = { x: Number(xElement.value), y: Number(yElement.value) }
+    console.log({ inputs })
+    log(JSON.stringify(inputs))
+
+    const noirWithCircuit = new Noir(circuit);
+    const backend = new UltraHonkBackend(circuit.bytecode);
+    try {
+        // if inputs invalid noir will error here
+        const {witness} = await noirWithCircuit.execute(inputs)
+        const { publicInputs, proof } = await backend.generateProof(witness)
+        const isVerified = await backend.verifyProof({ publicInputs, proof })
+        if (isVerified) {
+            result("it worked")
+            log(JSON.stringify({ publicInputs, proof:toHex(proof) }))
+        } else {
+            result("invalid proof")
+        }
+    } catch (error) {
+        result("invalid proof")
+    }
+}
+```
