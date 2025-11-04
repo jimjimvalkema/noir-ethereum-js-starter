@@ -38,4 +38,15 @@ sudo dpkg -i code_REPLACE_WITH_VERSION.deb;
 ```
 *pro tip if it's blurry and ur using fractional scaling:https://grok.com/c/d1079f60-b8a0-4859-8f17-ef4a265e7fd5*
 
+## [step 1 noir!!!](https://noir-lang.org/docs/getting_started/quick_start)
+### install nargo (the compiler)
+```shell
+curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
+noirup
+```
 
+### make a project
+we can now use nargo to make a little hello world project.
+```shell
+nargo new hello_world
+```
