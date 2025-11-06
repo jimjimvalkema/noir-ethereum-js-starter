@@ -44,9 +44,9 @@ Install noirup
 ```shell
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
 ```
-install nargo (and lets stick to this specific version: 1.0.0-beta.5)
+install nargo (and lets stick to this specific version: 1.0.0-beta.14)
 ```shell
-noirup --version  1.0.0-beta.5
+noirup --version  1.0.0-beta.14
 ```
 
 
@@ -103,11 +103,11 @@ Install bbup
 ```shell
 curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/next/barretenberg/bbup/install | bash
 ```
-*lets install bb and stick to this specific version: 0.72.1*
+*lets install bb and stick to this specific version: 3.0.0-nightly.20251030-2*
 ```shell
-bbup --version 0.72.1
+bbup --version 3.0.0-nightly.20251030-2
 ```
-*you can also do `bbup --nv  1.0.0-beta.5` to install the latest version of bb that is compatible with that nargo version*
+*you can also do `bbup --nv  1.0.0-beta.14` to install the latest version of bb that is compatible with that nargo version*
 
 
 ### setup 
@@ -119,7 +119,7 @@ nargo compile;
 ```
 
 Now it generated `target/hello_world.json`, this is our intermediate representation of our circuit!   
-<!-- Next let's make `nargo` make the "witness", which is the data `bb` needs to create a proofs.  
+Next let's make `nargo` make the "witness", which is the data `bb` needs to create a proofs.  
 Lets make the files where we can input the `x` and `y` values:
 ```shell
 nargo check
@@ -129,12 +129,12 @@ Now `Prover.toml` is generated. Lets edit it and add our numbers for ex lets do:
 ```toml
 x = "1"
 y = "2"
-``` -->
+```
 
 
 ### proof it!!!
 sorry noir brokey, but we will do it in js!
-<!-- Then we execute with nargo:
+Then we execute with nargo:
 ```shell 
 nargo execute;
 ```
@@ -146,8 +146,8 @@ Remember:
 `./target/hello_world.gz` is our witness, the intermediate step of our proof
 
 ```shell
-bb write_vk -b ./target/hello_world.json;
-bb prove -b ./target/hello_world.json -w ./target/hello_world.gz --vk target/vk -o target/proof;
+bb write_vk -b ./target/hello_world.json -o target;
+bb prove -b ./target/hello_world.json -w ./target/hello_world.gz -o target;
 ```
 This generated a whole bunch of files. But most importantly the proof and public inputs.   
 *vk and vk_hash are used to verify which circuit you are proving/verify*  
@@ -156,7 +156,7 @@ And now can verify it by doing:
 bb verify -p ./target/proof -k ./target/vk
 ```
 
-Yay we verified a zk proof. -->
+Yay we verified a zk proof.
 
 
 ## step 3 now let's do it in the browser
@@ -164,8 +164,8 @@ Yay we verified a zk proof. -->
 lets add our js package we need from aztec.   
 Make sure you are in the root of your project. (above `hello_world` folder) 
 ```shell
-yarn add @aztec/bb.js@0.72.1;
-yarn add @noir-lang/noir_js@1.0.0-beta.5;
+yarn add @aztec/bb.js@3.0.0-nightly.20251030-2;
+yarn add @noir-lang/noir_js@1.0.0-beta.14;
 yarn add viem;
 ```
 *you have to make sure the version match with nargo and bb ofc*  
@@ -208,7 +208,7 @@ Inside `index.html` paste this:
 
 now add vite to our project so we can run our website locally:
 ```shell
-yarn add vite;
+yarn add vite vite-plugin-node-polyfills;
 ```
 
 setup config for vite so it supports wasm:  
@@ -216,17 +216,20 @@ make a file called `vite.config.js`
 Paste this in there: 
 ```js
 // to enable wasm support since bb needs it
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
-export default {
-    plugins: [
-        nodePolyfills(),
-    ],
-  optimizeDeps: {
-    esbuildOptions: { target: 'esnext' },
-    exclude: ['@noir-lang/noirc_abi', '@noir-lang/acvm_js'],
+import { defineConfig } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+
+export default defineConfig({
+  plugins: [nodePolyfills()],
+  optimizeDeps: { 
+    exclude: ["@aztec/bb.js"] 
   },
-  root: '.',
-};
+  resolve: {
+    alias: {
+      pino: "pino/browser.js",
+    },
+  }
+});
 ```
 
 Now to see our website we can do: 
@@ -236,20 +239,24 @@ yarn vite dev
 But the buttons don't work yet!   
 Let's paste this into `index.js`:
 ```js
-function log(content) {
-	const container = document.getElementById("logs");
-	container.appendChild(document.createTextNode(content));
-	container.appendChild(document.createElement("br"));
+function addResultToUi(content) {
+    const container = document.getElementById("results");
+    container.appendChild(document.createTextNode(content));
+    container.appendChild(document.createElement("br"));
 };
 
+function addLogToUi(content) {
+    const container = document.getElementById("logs");
+    container.appendChild(document.createTextNode(content));
+    container.appendChild(document.createElement("br"));
+};
 
 async function onSubmit() {
-    const xElement = document.getElementById("number-x")
-    const yElement = document.getElementById("number-y")
-    const inputs = {x:Number(xElement.value),y:Number(yElement.value)}
-    console.log({inputs})
-    log(JSON.stringify(inputs))
-
+  const xElement = document.getElementById("number-x")
+  const yElement = document.getElementById("number-y")
+  const inputs = {x:Number(xElement.value),y:Number(yElement.value)}
+  console.log({inputs})
+  addLogToUi(JSON.stringify(inputs))
 }
 
 document.getElementById("submit").addEventListener("click", onSubmit);
@@ -257,12 +264,27 @@ document.getElementById("submit").addEventListener("click", onSubmit);
 
 now we can see what our inputs are in the logs box!  
 #### Now time to proof 
-Import noir,the circuit,viem and bb like this at the top of the index.js file:
+Import noir, the circuit, viem, bb and setup wasm like this at the top of the index.js file:
 ```js
+// just to make the proof look nice! (viem is a library to interact with ethereum just like ethers.js!)
+import { toHex } from 'viem';
+
+// our proving backend and noir!
 import { UltraHonkBackend } from '@aztec/bb.js';
 import { Noir } from '@noir-lang/noir_js';
+
+// the circuit we compiled with nargo compile
 import circuit from './hello_world/target/hello_world.json';
-import { toHex } from 'viem';
+
+// initialize some wasm shit
+import initNoirC from "@noir-lang/noirc_abi";
+import initACVM from "@noir-lang/acvm_js";
+import acvm from "@noir-lang/acvm_js/web/acvm_js_bg.wasm?url";
+import noirc from "@noir-lang/noirc_abi/web/noirc_abi_wasm_bg.wasm?url";
+await Promise.all([
+    initACVM(fetch(acvm)),
+    initNoirC(fetch(noirc))
+]);
 ```
 
 and replace the onSubmit function with this: 
@@ -272,23 +294,34 @@ async function onSubmit() {
     const yElement = document.getElementById("number-y")
     const inputs = { x: Number(xElement.value), y: Number(yElement.value) }
     console.log({ inputs })
-    log(JSON.stringify(inputs))
+    addLogToUi(JSON.stringify(inputs))
 
     const noirWithCircuit = new Noir(circuit);
     const backend = new UltraHonkBackend(circuit.bytecode);
+    // noirWithCircuit.execute() will error on invalid inputs. so we catch that error and log it.
     try {
         // if inputs invalid noir will error here
         const {witness} = await noirWithCircuit.execute(inputs)
         const { publicInputs, proof } = await backend.generateProof(witness)
         const isVerified = await backend.verifyProof({ publicInputs, proof })
         if (isVerified) {
-            result("it worked")
-            log(JSON.stringify({ publicInputs, proof:toHex(proof) }))
+            addResultToUi("it worked")
+            addLogToUi(JSON.stringify({ publicInputs, proof: toHex(proof) }))
         } else {
-            result("invalid proof")
+            addResultToUi("invalid proof")
         }
     } catch (error) {
-        result("invalid proof")
+        if (error.message === "Cannot satisfy constraint") {
+            addResultToUi("invalid inputs")
+        } else {
+            // at this point the error is unexpected and something went wrong
+            throw error
+        }
     }
 }
+```
+
+now you can run vite again and proof and verify in the browser!
+```shell
+yarn vite dev;
 ```

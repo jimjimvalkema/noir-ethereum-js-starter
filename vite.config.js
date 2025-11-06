@@ -1,8 +1,15 @@
 // to enable wasm support since bb needs it
-export default {
-  optimizeDeps: {
-    esbuildOptions: { target: 'esnext' },
-    exclude: ['@noir-lang/noirc_abi', '@noir-lang/acvm_js'],
+import { defineConfig } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+
+export default defineConfig({
+  plugins: [nodePolyfills()],
+  optimizeDeps: { 
+    exclude: ["@aztec/bb.js"] 
   },
-  root: '.',
-};
+  resolve: {
+    alias: {
+      pino: "pino/browser.js",
+    },
+  }
+});
