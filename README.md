@@ -325,3 +325,15 @@ now you can run vite again and proof and verify in the browser!
 ```shell
 yarn vite dev;
 ```
+
+## step 3 verify on ethereum
+TODO but you can look here at the bb docs: https://barretenberg.aztec.network/docs/nightly/how_to_guides/how-to-solidity-verifier
+### generate the solidity verifier
+
+### setup hardhat
+
+### write a contract
+
+### deploy 
+
+### plug in the ui
